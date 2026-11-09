@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#101a1d" />
+  <title>Longshot — Field Range</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="game-shell" aria-label="Longshot sniper game">
+    <canvas id="game" width="960" height="540" aria-label="Game field"></canvas>
+    <div class="scanlines" aria-hidden="true"></div>
+    <header class="topbar" id="topbar" hidden>
+      <button class="icon-btn" id="menu-btn" aria-label="Back to level map">⌂</button>
+      <div class="mission-label"><span class="eyebrow">FIELD OPERATION</span><strong id="mission-name">TIN TOWN</strong></div>
+      <div class="wind-pill"><span class="wind-icon">↗</span><span id="wind-label">WIND 0</span></div>
+      <div class="ammo-pill"><i></i><span id="shot-count">00</span><small>SHOTS</small></div>
+      <button class="icon-btn sound-btn" id="sound-btn" aria-label="Toggle sound">♫</button>
+    </header>
+    <section class="screen title-screen" id="title-screen">
+      <div class="title-copy">
+        <p class="eyebrow"><span class="live-dot"></span> FIELD RANGE · EST. 1987</p>
+        <h1>LONG<span>SHOT</span></h1>
+        <p class="tagline">One round. One clean line.</p>
+        <button class="primary-btn" id="play-btn">DEPLOY <span>→</span></button>
+        <p class="microcopy">A pocket-sized ballistics challenge</p>
+      </div>
+      <div class="title-stamp"><span>FIELD<br>MANUAL</span><b>LS—01</b></div>
+      <div class="title-bottom"><span>01 — 05 OPERATIONS</span><span>DRAG TO AIM&nbsp; · &nbsp;TAP TO FIRE</span></div>
+    </section>
+    <section class="screen map-screen" id="map-screen" hidden>
+      <div class="screen-heading"><p class="eyebrow">CHOOSE YOUR RANGE</p><h2>FIELD <span>NOTES</span></h2><p class="subhead">Five little problems. A very satisfying solution.</p></div>
+      <div class="level-grid" id="level-grid"></div>
+      <div class="map-footer"><span>← BACK TO BASE</span><span>PROGRESS SAVES AUTOMATICALLY</span></div>
+    </section>
+    <section class="screen result-screen" id="result-screen" hidden>
+      <div class="result-card"><p class="eyebrow" id="result-kicker">OPERATION COMPLETE</p><h2 id="result-title">CLEAN HIT.</h2><div class="stars" id="result-stars">★★★</div><p id="result-copy">Nice work, marksman.</p><div class="result-stats"><span>ROUNDS FIRED <b id="result-shots">01</b></span><span>RANGE SCORE <b id="result-score">1000</b></span></div><div class="result-actions"><button class="secondary-btn" id="retry-btn">REPLAY</button><button class="primary-btn" id="next-btn">NEXT RANGE <span>→</span></button></div></div>
+    </section>
+    <div class="control-hint" id="control-hint" hidden><span>◀ DRAG TO AIM</span><span>FIRE ▶</span></div>
+    <div class="aim-pad" id="aim-pad" hidden><span class="pad-cross">＋</span><span class="pad-label">DRAG TO AIM</span></div>
+    <button class="fire-btn" id="fire-btn" hidden><span class="fire-glyph">✳</span><b>FIRE</b><small>HOLD TO STEADY</small></button>
+    <div class="orientation" id="orientation"><div class="rotate-icon">▱<span>↻</span></div><b>TURN YOUR PHONE</b><small>LONGSHOT PLAYS BEST SIDEWAYS</small></div>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
