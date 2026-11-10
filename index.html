@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#0d1416" />
+<title>The Little Things — an evening in Harrowmere</title>
+<meta name="description" content="A cozy mystery about the objects people lose, and the stories they keep. Open the shop. Light the lamps. Listen." />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+  <canvas id="stage" aria-label="The Little Things game world"></canvas>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <div id="ui">
+
+    <!-- ============ TITLE ============ -->
+    <section id="title" class="screen title-screen">
+      <div class="title-panel">
+        <div class="title-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48" width="42" height="42"><circle cx="24" cy="26" r="13" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M24 18v8l5 3" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M20 10h8M24 10v3" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="24" cy="26" r="1.2" fill="currentColor"/></svg>
+        </div>
+        <p class="title-eyebrow">Harrowmere, an evening in the rain</p>
+        <h1 class="title-logo">The Little<br><em>Things</em></h1>
+        <p class="title-sub">An antique shop. A town that keeps its secrets.<br>A watch that stopped at 8:17.</p>
+        <div class="title-actions" id="titleActions"></div>
+        <p class="title-foot">Best with sound · Autosaves · A short story you can finish tonight</p>
+      </div>
+      <div class="title-side">
+        <p class="title-quote">“Everything in this shop was lost by someone.<br>Most of it was found again.”</p>
+        <p class="title-credit">A small game about keeping things</p>
+      </div>
+    </section>
+
+    <!-- ============ LOADING ============ -->
+    <section id="loading" class="screen loading-screen hidden">
+      <div class="loading-inner">
+        <div class="loading-watch" aria-hidden="true">
+          <span class="lw-face"><i></i><i></i></span>
+        </div>
+        <p class="loading-text">Lighting the lamps…</p>
+      </div>
+    </section>
+
+    <!-- ============ HUD ============ -->
+    <div id="hud" class="hud hidden">
+      <div class="hud-top">
+        <div class="loc">
+          <p class="loc-name" id="locName">The Little Things</p>
+          <p class="loc-sub" id="locSub">Harrowmere · 6:40 p.m.</p>
+        </div>
+        <div class="hud-actions">
+          <button class="hud-btn" data-open="journal" aria-label="Open journal">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h9a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3V4.5Z"/><path d="M8 20a3 3 0 0 1 3-3h6"/><path d="M8.5 8h6M8.5 11.5h4"/></svg>
+            <span>Journal</span>
+          </button>
+          <button class="hud-btn" data-open="inventory" aria-label="Open inventory">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h16l-1 10H5l-1-10Z"/><path d="M9 9.5V7a3 3 0 0 1 6 0v2.5"/><path d="M4 13h16"/></svg>
+            <span>Satchel</span>
+          </button>
+          <button class="hud-btn" data-open="board" aria-label="Open clue board">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="2.2"/><circle cx="17" cy="9" r="2.2"/><circle cx="10" cy="17" r="2.2"/><path d="M8.9 8.2 15 8.7M8 9l1.5 5.8M15.8 10.6l-4.4 5"/></svg>
+            <span>Threads</span>
+          </button>
+          <button class="hud-btn" data-open="pause" aria-label="Open menu">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4M14 5h4M6 19h4M14 19h4"/><path d="M8 5v14M16 5v14"/></svg>
+            <span>Menu</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="hud-under">
+        <div class="thought" id="thought">
+          <span class="thought-kicker">A thought</span>
+          <span id="thoughtText">The shop is quiet. The rain is doing its work.</span>
+        </div>
+        <div class="hud-status" id="hudStatus" aria-live="polite"></div>
+      </div>
+
+      <div id="toasts" class="toasts" aria-live="polite"></div>
+
+      <div id="prompt" class="prompt hidden">
+        <kbd>E</kbd><span id="promptText">Examine</span>
+      </div>
+
+      <div id="joystick" class="joystick hidden" aria-hidden="true">
+        <div class="joy-ring"><div class="joy-stick" id="stick"></div></div>
+        <span class="joy-label">walk</span>
+      </div>
+
+      <div id="mobileHint" class="mobile-hint hidden">Tap the warm glimmers · drag to walk</div>
+    </div>
+
+    <!-- ============ DIALOGUE ============ -->
+    <section id="dialogue" class="overlay dialogue hidden" aria-modal="true" role="dialog">
+      <div class="dlg-frame">
+        <div class="dlg-portrait" id="dlgPortraitWrap">
+          <canvas id="dlgPortrait" width="340" height="420" aria-hidden="true"></canvas>
+          <div class="dlg-portrait-fade"></div>
+        </div>
+        <div class="dlg-body">
+          <div class="dlg-head">
+            <p class="dlg-name" id="dlgName"></p>
+            <p class="dlg-role" id="dlgRole"></p>
+            <button class="icon-btn dlg-close" id="dlgClose" aria-label="End conversation">×</button>
+          </div>
+          <div class="dlg-text" id="dlgText"></div>
+          <div class="dlg-topics" id="dlgTopics"></div>
+          <div class="dlg-foot"><span id="dlgHint">click, or press space</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ INSPECT ============ -->
+    <section id="inspect" class="overlay inspect hidden" aria-modal="true" role="dialog">
+      <div class="inspect-frame">
+        <header class="panel-head">
+          <div>
+            <p class="eyebrow" id="inspectKicker">Object</p>
+            <h2 id="inspectTitle">Brass pocket watch</h2>
+          </div>
+          <button class="icon-btn" data-close="inspect" aria-label="Close inspection">×</button>
+        </header>
+        <div class="inspect-main">
+          <div class="inspect-stage" id="inspectStage">
+            <canvas id="inspectCanvas" width="900" height="620"></canvas>
+            <div class="inspect-glow" aria-hidden="true"></div>
+            <p class="inspect-instruction" id="inspectInstruction">Drag to turn it over · click the glimmers</p>
+          </div>
+          <aside class="inspect-side">
+            <p class="inspect-desc" id="inspectDesc"></p>
+            <div class="inspect-details" id="inspectDetails"></div>
+            <div class="inspect-actions" id="inspectActions"></div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ JOURNAL ============ -->
+    <section id="journal" class="overlay journal hidden" aria-modal="true" role="dialog">
+      <div class="journal-frame">
+        <header class="panel-head">
+          <div>
+            <p class="eyebrow">Kept in the back of the ledger</p>
+            <h2>The investigation journal</h2>
+          </div>
+          <button class="icon-btn" data-close="journal" aria-label="Close journal">×</button>
+        </header>
+        <div class="journal-tabs" id="journalTabs">
+          <button class="tab active" data-tab="case">The case</button>
+          <button class="tab" data-tab="people">People</button>
+          <button class="tab" data-tab="places">Places</button>
+          <button class="tab" data-tab="evidence">Evidence</button>
+        </div>
+        <div class="journal-pages" id="journalPages"></div>
+      </div>
+    </section>
+
+    <!-- ============ INVENTORY ============ -->
+    <section id="inventory" class="overlay inventory hidden" aria-modal="true" role="dialog">
+      <div class="inventory-frame">
+        <header class="panel-head">
+          <div>
+            <p class="eyebrow">Things that found their way here</p>
+            <h2>The satchel</h2>
+          </div>
+          <button class="icon-btn" data-close="inventory" aria-label="Close satchel">×</button>
+        </header>
+        <div class="inventory-grid" id="inventoryGrid"></div>
+        <p class="inventory-empty" id="inventoryEmpty">Nothing yet. The shop is good at changing that.</p>
+        <div class="inventory-detail" id="inventoryDetail"></div>
+      </div>
+    </section>
+
+    <!-- ============ CLUE BOARD ============ -->
+    <section id="board" class="overlay board hidden" aria-modal="true" role="dialog">
+      <div class="board-frame">
+        <header class="panel-head">
+          <div>
+            <p class="eyebrow">Red thread &amp; brass pins</p>
+            <h2>The clue board</h2>
+          </div>
+          <div class="board-head-actions">
+            <button class="text-btn" id="boardHintBtn">Ask for a nudge</button>
+            <button class="icon-btn" data-close="board" aria-label="Close clue board">×</button>
+          </div>
+        </header>
+        <div class="board-main">
+          <div class="board-canvas" id="boardCanvas">
+            <svg id="boardLines" aria-hidden="true"></svg>
+            <div id="boardCards"></div>
+            <div class="board-empty" id="boardEmpty">Nothing to pin up yet. Look closely at what people give you.</div>
+          </div>
+          <aside class="board-side">
+            <p class="board-instruction" id="boardInstruction">Choose two cards to tie them together.</p>
+            <div class="deductions" id="deductions"></div>
+            <div class="board-progress" id="boardProgress"></div>
+            <button class="text-btn board-to-journal" data-open="journal">Open the journal →</button>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ DECISION ============ -->
+    <section id="decision" class="overlay decision hidden" aria-modal="true" role="dialog">
+      <div class="decision-frame">
+        <p class="eyebrow">The counter, late</p>
+        <h2>What should happen to the watch?</h2>
+        <p class="decision-lead">The letter is folded beneath it. The rain has stopped, or you have stopped hearing it.</p>
+        <div class="decision-object" aria-hidden="true">
+          <canvas id="decisionCanvas" width="520" height="320"></canvas>
+        </div>
+        <div class="decision-choices">
+          <button class="decision-choice" data-choice="returned">
+            <span class="choice-kicker">Return them</span>
+            <span class="choice-title">Take the watch and letter to June.</span>
+            <span class="choice-note">Some things are only ours to carry for a while.</span>
+          </button>
+          <button class="decision-choice" data-choice="kept">
+            <span class="choice-kicker">Keep them</span>
+            <span class="choice-title">Give the watch a place in the shop.</span>
+            <span class="choice-note">Some truths wait longer than others.</span>
+          </button>
+        </div>
+        <button class="text-btn decision-cancel" data-close="decision">Not yet — step back</button>
+      </div>
+    </section>
+
+    <!-- ============ DECOR ============ -->
+    <section id="decor" class="overlay decor hidden" aria-modal="true" role="dialog">
+      <div class="decor-frame">
+        <header class="panel-head">
+          <div>
+            <p class="eyebrow">A shop is a promise that somebody will come back</p>
+            <h2>Arrange the little things</h2>
+          </div>
+          <button class="icon-btn" data-close="decor" aria-label="Close decorating">×</button>
+        </header>
+        <div class="decor-body" id="decorBody"></div>
+        <p class="decor-foot">Every change is kept. The rain will still be there when you are done.</p>
+      </div>
+    </section>
+
+    <!-- ============ PAUSE ============ -->
+    <section id="pause" class="overlay pause hidden" aria-modal="true" role="dialog">
+      <div class="pause-frame">
+        <p class="eyebrow">The shop can wait a moment</p>
+        <h2>Paused</h2>
+        <div class="pause-list">
+          <button class="menu-btn" data-close="pause"><span>Return to the shop</span><small>keep looking</small></button>
+          <button class="menu-btn" id="saveNowBtn"><span>Save now</span><small>it saves itself, mostly</small></button>
+          <button class="menu-btn" data-open="settings"><span>Settings</span><small>sound, text, motion</small></button>
+          <button class="menu-btn" id="howToBtn"><span>How to play</span><small>a gentle reminder</small></button>
+          <button class="menu-btn" id="toTitleBtn"><span>Return to the title</span><small>your evening is saved</small></button>
+        </div>
+        <p class="pause-save" id="pauseSave">Autosaved just now</p>
+      </div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section id="settings" class="overlay settings hidden" aria-modal="true" role="dialog">
+      <div class="settings-frame">
+        <header class="panel-head">
+          <div>
+            <p class="eyebrow">Make it comfortable</p>
+            <h2>Settings</h2>
+          </div>
+          <button class="icon-btn" data-close="settings" aria-label="Close settings">×</button>
+        </header>
+        <div class="settings-body">
+          <label class="slider-row"><span>Music</span><input type="range" id="volMusic" min="0" max="1" step="0.01" /><output id="volMusicOut">50%</output></label>
+          <label class="slider-row"><span>Rain &amp; town</span><input type="range" id="volAmb" min="0" max="1" step="0.01" /><output id="volAmbOut">65%</output></label>
+          <label class="slider-row"><span>Small sounds</span><input type="range" id="volSfx" min="0" max="1" step="0.01" /><output id="volSfxOut">70%</output></label>
+          <label class="slider-row"><span>Text speed</span><input type="range" id="textSpeed" min="0.5" max="2" step="0.1" /><output id="textSpeedOut">1.0×</output></label>
+          <label class="toggle-row"><span>Reduce motion<small>softer transitions, fewer drifting things</small></span><input type="checkbox" id="reduceMotion" /></label>
+          <div class="settings-note">
+            <p><strong>About the voices.</strong> Every line in Harrowmere is authored by hand. No AI model is connected to this build; characters remember what you ask them through a small, deliberate memory system. The mystery's facts never change.</p>
+            <p class="settings-credit">The Little Things · a short story in four rooms.<br>Made with canvas, rain, and an unreasonable fondness for pocket watches.</p>
+          </div>
+          <button class="text-btn" id="fullscreenBtn">Toggle fullscreen</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HOW TO ============ -->
+    <section id="howto" class="overlay howto hidden" aria-modal="true" role="dialog">
+      <div class="howto-frame">
+        <header class="panel-head">
+          <div>
+            <p class="eyebrow">A small page of instructions</p>
+            <h2>How to keep a shop</h2>
+          </div>
+          <button class="icon-btn" data-close="howto" aria-label="Close">×</button>
+        </header>
+        <div class="howto-body">
+          <div class="howto-item"><span class="howto-key">WASD / arrows</span><p>Walk. Or click the floor. On a phone, drag anywhere on the left side of the screen.</p></div>
+          <div class="howto-item"><span class="howto-key">E / tap</span><p>Interact with whatever is glowing nearby. Clicking a glimmer walks you there first.</p></div>
+          <div class="howto-item"><span class="howto-key">J · I · C</span><p>Journal, satchel, clue board. Esc closes a panel or opens the menu.</p></div>
+          <div class="howto-item"><span class="howto-key">Look closer</span><p>When you inspect something, drag it, turn it over, and click the small warm glimmers. Details matter.</p></div>
+          <div class="howto-item"><span class="howto-key">Red thread</span><p>On the clue board, choose two cards to connect them. Some connections are the point. Some are just for you.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ENDING ============ -->
+    <section id="ending" class="screen ending hidden" aria-modal="true" role="dialog">
+      <canvas id="endingCanvas" width="1280" height="800" aria-hidden="true"></canvas>
+      <div class="ending-wash" aria-hidden="true"></div>
+      <div class="ending-card">
+        <p class="ending-eyebrow" id="endingEyebrow">The watch that waited</p>
+        <h2 id="endingTitle">The hour kept</h2>
+        <div class="ending-prose" id="endingProse"></div>
+        <p class="ending-quote" id="endingQuote"></p>
+        <div class="ending-actions">
+          <button class="primary-btn" id="endingContinue">Stay a while in the shop</button>
+          <button class="text-btn" id="endingTitleBtn">Return to the title</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CONFIRM ============ -->
+    <section id="confirm" class="overlay confirm hidden" aria-modal="true" role="dialog">
+      <div class="confirm-frame">
+        <p class="eyebrow" id="confirmKicker">A small caution</p>
+        <h2 id="confirmTitle">Are you sure?</h2>
+        <p id="confirmText"></p>
+        <div class="confirm-actions">
+          <button class="primary-btn" id="confirmYes">Yes</button>
+          <button class="text-btn" id="confirmNo">No, not yet</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="savePip" class="save-pip" aria-live="polite">saved</div>
+    <div id="sceneFade" class="scene-fade" aria-hidden="true"></div>
+    <div id="cinemaBars" class="cinema-bars" aria-hidden="true"><i></i><i></i></div>
+  </div>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/data.js"></script>
+<script src="js/art.js"></script>
+<script src="js/figures.js"></script>
+<script src="js/scenes-a.js"></script>
+<script src="js/scenes-b.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
