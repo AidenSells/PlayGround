@@ -63,6 +63,7 @@
   let chapterTimer = null;
   let mobileHintTimer = null;
   let lastSaveAt = 0;
+  let saveFailed = false;
   const coarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
   /* ------------------------------------------------------------
@@ -90,12 +91,14 @@
     }, 4300);
   }
 
-  function showPip() {
+  function showPip(failed) {
     const pip = $('savePip');
     if (!pip) return;
+    pip.textContent = failed ? 'Save failed' : 'Saved';
+    pip.classList.toggle('failed', !!failed);
     pip.classList.add('show');
     clearTimeout(pipTimer);
-    pipTimer = setTimeout(() => pip.classList.remove('show'), 1600);
+    pipTimer = setTimeout(() => pip.classList.remove('show'), failed ? 5000 : 1600);
   }
 
   function ago(ms) {
@@ -192,11 +195,25 @@
   }
 
   function saveNow(pip) {
-    if (!S) return;
-    SAVE.write(S);
-    lastSaveAt = S.savedAt || Date.now();
-    if (pip !== false) showPip();
+    if (!S) return false;
+    const previousSavedAt = S.savedAt;
+    const saved = SAVE.write(S);
+    if (saved) {
+      lastSaveAt = S.savedAt || Date.now();
+      saveFailed = false;
+      clearTimeout(pipTimer);
+      const pipEl = $('savePip');
+      if (pipEl) {
+        pipEl.textContent = 'Saved';
+        pipEl.classList.remove('show', 'failed');
+      }
+    } else {
+      S.savedAt = previousSavedAt;
+      saveFailed = true;
+    }
+    if (pip !== false || !saved) showPip(!saved);
     updatePauseSave();
+    return saved;
   }
 
   function queueSave() {
@@ -208,8 +225,14 @@
   function updatePauseSave() {
     const el = $('pauseSave');
     if (!el) return;
-    const at = S && S.savedAt ? S.savedAt : lastSaveAt;
+    if (saveFailed) {
+      el.textContent = 'Save failed — changes may not be kept';
+      el.classList.add('save-failed');
+      return;
+    }
+    const at = lastSaveAt || (S && S.savedAt);
     el.textContent = at ? 'Autosaved ' + ago(at) : 'Not saved yet';
+    el.classList.remove('save-failed');
   }
 
   function currentScene() {
@@ -1551,6 +1574,28 @@
     });
   }
 
+  function fitBoardCards() {
+    const wrap = $('boardCanvas');
+    const width = wrap && wrap.clientWidth;
+    const height = wrap && wrap.clientHeight;
+    if (!width || !height) return;
+    let changed = false;
+    $$('.clue-card', $('boardCards')).forEach((card) => {
+      const minX = Math.min(0.5, (card.offsetWidth / 2 + 4) / width);
+      const minY = Math.min(0.5, (card.offsetHeight / 2 + 4) / height);
+      const x = clamp(parseFloat(card.style.left) / 100, minX, 1 - minX);
+      const y = clamp(parseFloat(card.style.top) / 100, minY, 1 - minY);
+      if (Math.abs(parseFloat(card.style.left) / 100 - x) > 0.0001 || Math.abs(parseFloat(card.style.top) / 100 - y) > 0.0001) {
+        changed = true;
+        const id = card.dataset.card;
+        S.cardPos[id] = { x, y };
+      }
+      card.style.left = x * 100 + '%';
+      card.style.top = y * 100 + '%';
+    });
+    if (changed) queueSave();
+  }
+
   function renderBoard() {
     if (!S) return;
     ensureCardPositions();
@@ -1570,6 +1615,7 @@
         );
       })
       .join('');
+    fitBoardCards();
     renderBoardSide();
     updateBoardInstruction();
     requestAnimationFrame(renderBoardLines);
@@ -1712,7 +1758,10 @@
     stage.style.height = view.h + 'px';
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     if (S && mode === 'game') updateCamera(0, true);
-    if (isOpen('board')) requestAnimationFrame(renderBoardLines);
+    if (isOpen('board')) {
+      fitBoardCards();
+      requestAnimationFrame(renderBoardLines);
+    }
   }
 
   function renderTitle(t) {
@@ -1964,7 +2013,10 @@
       renderBoard();
       showOverlay('board', { exclusive: true });
       AUDIO.play('page');
-      requestAnimationFrame(renderBoardLines);
+      requestAnimationFrame(() => {
+        fitBoardCards();
+        renderBoardLines();
+      });
     } else if (name === 'decor') {
       renderDecor();
       showOverlay('decor', { exclusive: true });
@@ -2286,8 +2338,8 @@
         card,
         startX: e.clientX,
         startY: e.clientY,
-        origX: pos.x,
-        origY: pos.y,
+        origX: parseFloat(card.style.left) / 100,
+        origY: parseFloat(card.style.top) / 100,
         moved: false,
       };
       try {
@@ -2303,8 +2355,12 @@
       const wrap = $('boardCanvas');
       if (!wrap) return;
       const rect = wrap.getBoundingClientRect();
-      const x = clamp(boardDrag.origX + dx / Math.max(1, rect.width), 0.07, 0.93);
-      const y = clamp(boardDrag.origY + dy / Math.max(1, rect.height), 0.08, 0.92);
+      const cardWidth = boardDrag.card.offsetWidth;
+      const cardHeight = boardDrag.card.offsetHeight;
+      const minX = Math.min(0.5, (cardWidth / 2 + 4) / Math.max(1, rect.width));
+      const minY = Math.min(0.5, (cardHeight / 2 + 4) / Math.max(1, rect.height));
+      const x = clamp(boardDrag.origX + dx / Math.max(1, rect.width), minX, 1 - minX);
+      const y = clamp(boardDrag.origY + dy / Math.max(1, rect.height), minY, 1 - minY);
       S.cardPos[boardDrag.id] = { x, y };
       boardDrag.card.style.left = x * 100 + '%';
       boardDrag.card.style.top = y * 100 + '%';
@@ -2320,6 +2376,15 @@
         }, 80);
       }
       boardDrag = null;
+      if (suppressBoardClick && S) {
+        Object.keys(S.cardPos).forEach((id) => {
+          const card = document.querySelector('.clue-card[data-card="' + id + '"]');
+          if (card) S.cardPos[id] = {
+            x: parseFloat(card.style.left) / 100,
+            y: parseFloat(card.style.top) / 100,
+          };
+        });
+      }
       renderBoardLines();
     });
 
