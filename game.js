@@ -22,9 +22,22 @@
   ];
   let state = 'title', index = 0, aim = 8, shotCount = 0, targets = [], bullets = [], particles = [];
   let recoil = 0, soundOn = false, dragging = false, pointer = null, last = performance.now(), clock = 0;
+  let toast = '', toastTime = 0;
+  const progress = loadProgress();
   const groundY = 425;
   const rifleOrigin = {x: 67, y: 399};
 
+  function loadProgress() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('longshot-progress') || '{}');
+      return { ratings: Array.isArray(saved.ratings) ? saved.ratings : [], scores: Array.isArray(saved.scores) ? saved.scores : [] };
+    } catch (_) {
+      return { ratings: [], scores: [] };
+    }
+  }
+  function saveProgress() {
+    try { localStorage.setItem('longshot-progress', JSON.stringify(progress)); } catch (_) { /* Storage is optional. */ }
+  }
   function setScreen(next) {
     state = next;
     ui.title.hidden = next !== 'title';
@@ -44,17 +57,19 @@
   function startLevel(i) {
     index = (i + levels.length) % levels.length;
     targets = levels[index].targets.map((t, n) => ({...t, alive: true, number:n}));
-    bullets = []; particles = []; shotCount = 0; aim = 8; recoil = 0; clock = 0;
+    bullets = []; particles = []; shotCount = 0; aim = 8; recoil = 0; clock = 0; toast = ''; toastTime = 0;
     updateHud(); setScreen('playing');
   }
-  function showMap() { setScreen('map'); }
+  function showMap() { makeMap(); setScreen('map'); }
   function makeMap() {
     ui.grid.innerHTML = '';
     levels.forEach((level, i) => {
       const card = document.createElement('button');
       card.className = 'level-card';
       card.setAttribute('aria-label', `Play range ${i + 1}: ${level.name}`);
-      card.innerHTML = `<span class="card-number">0${i + 1} / 05</span><div class="card-art"></div><div class="card-info"><b>${level.name}</b><small>${level.place.toUpperCase()}</small></div><span class="card-stars">${'★'.repeat(level.goal)}</span>`;
+      const rating = Math.max(0, Math.min(3, progress.ratings[i] || 0));
+      const best = progress.scores[i] || 0;
+      card.innerHTML = `<span class="card-number">0${i + 1} / 05</span><div class="card-art"></div><div class="card-info"><b>${level.name}</b><small>${level.place.toUpperCase()}</small></div><span class="card-stars" aria-label="Best rating: ${rating} of 3 stars">${'★'.repeat(rating)}${'☆'.repeat(3 - rating)}${best ? `<small class="card-best">BEST ${best}</small>` : ''}</span>`;
       card.addEventListener('click', () => startLevel(i));
       ui.grid.appendChild(card);
     });
@@ -63,12 +78,17 @@
     if (!won) return;
     setScreen('result');
     const rating = shotCount <= targets.length ? 3 : shotCount <= targets.length + 2 ? 2 : 1;
+    const score = Math.max(100, 1000 - Math.max(0, shotCount - targets.length) * 125);
+    const newBest = score > (progress.scores[index] || 0);
+    progress.ratings[index] = Math.max(progress.ratings[index] || 0, rating);
+    progress.scores[index] = Math.max(progress.scores[index] || 0, score);
+    saveProgress();
     ui.kicker.textContent = 'OPERATION COMPLETE';
     ui.resultTitle.textContent = rating === 3 ? 'CLEAN HIT.' : 'RANGE CLEAR.';
     ui.stars.textContent = '★'.repeat(rating) + '☆'.repeat(3 - rating);
-    ui.copy.textContent = rating === 3 ? 'One clean line. Just like the manual.' : 'Every target down. Room to sharpen the shot.';
+    ui.copy.textContent = `${rating === 3 ? 'One clean line. Just like the manual.' : 'Every target down. Room to sharpen the shot.'}${newBest ? ' New personal best!' : ''}`;
     ui.resultShots.textContent = String(shotCount).padStart(2, '0');
-    ui.score.textContent = String(Math.max(100, 1000 - Math.max(0, shotCount - targets.length) * 125));
+    ui.score.textContent = String(score);
     ui.next.innerHTML = index === levels.length - 1 ? 'FIELD NOTES <span>→</span>' : 'NEXT RANGE <span>→</span>';
   }
 
@@ -119,45 +139,49 @@
   function muzzle() { return {x: rifleOrigin.x+94*Math.cos(aim*Math.PI/180), y: rifleOrigin.y-94*Math.sin(aim*Math.PI/180)+recoil*5}; }
   function trajectory() {
     const from=muzzle(), points=[from], wind=levels[index].wind;
-    const radians=aim*Math.PI/180, vx=690, vy=-Math.tan(radians)*vx, gravity=210;
-    let hit=null, end=from;
+    const radians=aim*Math.PI/180, vx=690, vy=-Math.tan(radians)*vx, gravity=24;
+    let hit=null, blocked=false, end=from;
     for(let t=0.025;t<=1.5;t+=0.025){
       const px=from.x+vx*t+wind*3.1*t*t, py=from.y+vy*t+gravity*t*t/2;
       const p={x:px,y:py}; points.push(p); end=p;
       if(py>=groundY || px>=W-8 || py<30) break;
-      for(const target of targets){if(!target.alive)continue;const rad=target.r+4;if(Math.hypot(px-target.x,py-target.y)<rad){hit=target;end=p;return {from,points,hit,to:end};}}
+      for(const target of targets){if(!target.alive)continue;const rad=target.r+4;if(Math.hypot(px-target.x,py-target.y)<rad){hit=target;end=p;return {from,points,hit,blocked,to:end};}}
+      for(const o of levels[index].blocks){if(px>=o.x && px<=o.x+o.w && py>=o.y && py<=o.y+o.h){blocked=true;return {from,points,hit,blocked,to:end};}}
     }
-    return {from,points,hit,to:end};
+    return {from,points,hit,blocked,to:end};
   }
   function drawReticle() {
     if(state!=='playing')return;
     const tr=trajectory(), p=tr.to, r=tr.hit?10:7;
     x.save();x.setLineDash([3,5]);x.strokeStyle='#e7e5c27a';x.lineWidth=1;x.beginPath();x.moveTo(tr.from.x,tr.from.y);for(let i=1;i<tr.points.length;i+=2)x.lineTo(tr.points[i].x,tr.points[i].y);x.stroke();x.restore();
-    x.strokeStyle=tr.hit?'#f06b3d':'#e6e9c8';x.lineWidth=1.5;x.beginPath();x.arc(p.x,p.y,r,0,Math.PI*2);x.stroke();x.fillStyle=tr.hit?'#f06b3d':'#e6e9c8';x.fillRect(Math.round(p.x-1),Math.round(p.y-1),3,3);
+    const markColor=tr.hit?'#f06b3d':tr.blocked?'#e7b45b':'#e6e9c8';
+    x.strokeStyle=markColor;x.lineWidth=1.5;x.beginPath();x.arc(p.x,p.y,r,0,Math.PI*2);x.stroke();x.fillStyle=markColor;x.fillRect(Math.round(p.x-1),Math.round(p.y-1),3,3);
     x.beginPath();x.moveTo(p.x-r-5,p.y);x.lineTo(p.x-r,p.y);x.moveTo(p.x+r,p.y);x.lineTo(p.x+r+5,p.y);x.moveTo(p.x,p.y-r-5);x.lineTo(p.x,p.y-r);x.moveTo(p.x,p.y+r);x.lineTo(p.x,p.y+r+5);x.stroke();
-    if(tr.hit){x.font='8px monospace';x.fillStyle='#f6d2a2';x.textAlign='center';x.fillText('ON TARGET',p.x,p.y+23);}
+    if(tr.hit || tr.blocked){x.font='8px monospace';x.fillStyle=markColor;x.textAlign='center';x.fillText(tr.hit?'ON TARGET':'BLOCKED',p.x,p.y+23);}
   }
   function hud() {
     if(state!=='playing')return;
     rect(748,77,184,30,'#101a1bbd');x.font='8px monospace';x.textAlign='left';x.fillStyle='#c7d0bc';x.fillText('TARGETS',760,89);
     const remaining=targets.filter(t=>t.alive).length;
     for(let i=0;i<levels[index].goal;i++){x.fillStyle=i<remaining?'#f06b3d':'#657261';x.fillRect(817+i*18,84,11,11);x.fillStyle=i<remaining?'#241e1a':'#26312c';x.fillRect(820+i*18,87,5,5);}
+    if(toastTime>0 && toast){x.font='bold 10px monospace';x.textAlign='center';x.fillStyle='#111a1be8';x.fillRect(374,115,212,25);x.fillStyle=toast.startsWith('MISS')?'#e7b45b':'#d8e56a';x.fillText(toast,480,131);}
   }
   function addBurst(px,py,color) { for(let i=0;i<12;i++){const a=i*Math.PI/6, speed=35+(i%4)*15;particles.push({x:px,y:py,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed-15,life:.65,size:2+(i%3),color});} }
   function fire() {
     if(state!=='playing' || bullets.length>0)return;
     shotCount++;ui.shots.textContent=String(shotCount).padStart(2,'0');recoil=1;
     const tr=trajectory();
-    bullets.push({points:tr.points.map(p=>({...p})),progress:0,hit:tr.hit});
+    bullets.push({points:tr.points.map(p=>({...p})),progress:0,hit:tr.hit,blocked:tr.blocked});
     playTone(150,.045,'square');
   }
   function update(dt) {
     clock+=dt;recoil=Math.max(0,recoil-dt*4.5);
+    if(toastTime>0)toastTime=Math.max(0,toastTime-dt);
     for(let i=bullets.length-1;i>=0;i--){
       const b=bullets[i];b.progress+=dt*520;const at=Math.min(Math.floor(b.progress/8),b.points.length-1);b.x=b.points[at].x;b.y=b.points[at].y;
       if(at>=b.points.length-1){
-        if(b.hit&&b.hit.alive){b.hit.alive=false;addBurst(b.hit.x,b.hit.y,'#f6bf70');playTone(480,.12,'triangle');}
-        else addBurst(b.x,b.y,'#d4c397');
+        if(b.hit&&b.hit.alive){b.hit.alive=false;addBurst(b.hit.x,b.hit.y,'#f6bf70');playTone(480,.12,'triangle');toast='TARGET DOWN';toastTime=1.1;}
+        else {addBurst(b.x,b.y,b.blocked?'#e7b45b':'#d4c397');toast=b.blocked?'SHOT BLOCKED':'MISS — ADJUST YOUR AIM';toastTime=1.5;}
         bullets.splice(i,1);
         if(targets.every(t=>!t.alive)){finishLevel(true);}
       }
