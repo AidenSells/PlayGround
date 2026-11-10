@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0a1118">
+<title>The Little Things — a cozy mystery</title>
+<meta name="description" content="A cozy, atmospheric mystery about an antique shop, a stopped pocket watch, and the stories people leave behind.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="stage">
+  <div id="stage-inner">
+    <canvas id="game" width="1280" height="720" aria-label="The Little Things game world"></canvas>
+  </div>
+</div>
+
+<div id="grain" aria-hidden="true"></div>
+
+<!-- In-game HUD -->
+<header id="hud" class="hidden">
+  <div class="hud-loc">
+    <span id="hud-place">The Little Things</span>
+    <span id="hud-sub">Ember Hollow</span>
+  </div>
+  <div class="hud-objective"><span class="obj-label">Tonight</span><span id="hud-objective">Open the shop.</span></div>
+  <nav class="hud-actions" aria-label="Game menu">
+    <button id="btn-journal" class="icon-btn" title="Journal (J)" aria-label="Open journal">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v18H6.5A1.5 1.5 0 0 1 5 19.5v-15Z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M5 17.5h14M8.4 3v14.5M11.5 7.2h4M11.5 10.2h4" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>
+      <span>Journal</span><kbd>J</kbd>
+    </button>
+    <button id="btn-menu" class="icon-btn" title="Menu (Esc)" aria-label="Open menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M12 8v4.2l2.6 1.7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      <span>Menu</span><kbd>Esc</kbd>
+    </button>
+  </nav>
+</header>
+
+<div id="interact-prompt" class="hidden" aria-live="polite">
+  <span class="key">E</span><span id="prompt-label">Examine</span>
+</div>
+
+<div id="objective-toast" class="hidden" aria-live="polite">
+  <span class="toast-kicker">The evening turns</span>
+  <span id="objective-toast-text"></span>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<!-- Dialogue -->
+<section id="dialogue" class="hidden" aria-live="polite">
+  <div class="dlg-decor" aria-hidden="true"></div>
+  <div class="dlg-portrait-wrap">
+    <canvas id="dlg-portrait" width="180" height="180"></canvas>
+    <div class="portrait-ring" aria-hidden="true"></div>
+  </div>
+  <div class="dlg-body">
+    <div class="dlg-head"><span id="dlg-speaker">Mara</span><span id="dlg-note"></span></div>
+    <p id="dlg-text"></p>
+    <div id="dlg-choices" class="choices hidden"></div>
+    <div id="dlg-continue" class="continue-cue" aria-hidden="true"><span>continue</span><span class="cue-key">E</span><span class="cue-dot"></span></div>
+  </div>
+</section>
+
+<!-- Journal -->
+<section id="journal" class="overlay hidden" aria-label="Investigation journal">
+  <div class="book" role="dialog" aria-modal="true" aria-labelledby="journal-title">
+    <div class="book-ribbon" aria-hidden="true"></div>
+    <div class="book-head">
+      <div class="book-title-wrap">
+        <span class="book-kicker">The Little Things</span>
+        <h2 id="journal-title">Investigation Journal</h2>
+      </div>
+      <div class="book-tabs" role="tablist">
+        <button class="tab active" data-tab="case" role="tab">The Case</button>
+        <button class="tab" data-tab="threads" role="tab">Threads</button>
+        <button class="tab" data-tab="people" role="tab">People</button>
+        <button class="tab" data-tab="keepsakes" role="tab">Little Things</button>
+      </div>
+      <button id="journal-close" class="close-btn" aria-label="Close journal">×</button>
+    </div>
+    <div class="book-body">
+      <div id="tab-case" class="tab-panel active"></div>
+      <div id="tab-threads" class="tab-panel"></div>
+      <div id="tab-people" class="tab-panel"></div>
+      <div id="tab-keepsakes" class="tab-panel"></div>
+    </div>
+    <div class="book-foot">
+      <span id="journal-hint">Every small thing remembers something.</span>
+      <span id="journal-count"></span>
+    </div>
+  </div>
+</section>
+
+<!-- Object inspection -->
+<section id="inspect" class="overlay inspect-overlay hidden" aria-label="Examine the watch">
+  <div class="inspect-wrap">
+    <button id="inspect-close" class="close-btn" aria-label="Put the watch down">×</button>
+    <div class="inspect-stage">
+      <div class="inspect-glow" aria-hidden="true"></div>
+      <div id="watch-svg-wrap" class="watch-svg-wrap"></div>
+      <div class="inspect-controls">
+        <button id="watch-flip" class="small-btn">Turn it over</button>
+        <button id="watch-open" class="small-btn hidden">Open the case back</button>
+      </div>
+    </div>
+    <aside class="inspect-panel">
+      <span class="book-kicker">Object 001</span>
+      <h2>A brass pocket watch</h2>
+      <p class="inspect-lede">Stopped at 8:17. Warm from your hand, though it has not run in years.</p>
+      <div class="inspect-progress">
+        <span id="inspect-progress-label">0 of 4 details noticed</span>
+        <div class="progress-track"><div id="inspect-progress-fill"></div></div>
+      </div>
+      <p id="inspect-caption" class="inspect-caption">Click the small glints on the watch. Look closely.</p>
+      <ul id="inspect-details" class="detail-list"></ul>
+      <p class="inspect-tip">You can examine the watch again from your journal.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- Evidence / document viewer -->
+<section id="evidence" class="overlay evidence-overlay hidden" aria-label="Evidence">
+  <div class="evidence-wrap">
+    <button id="evidence-close" class="close-btn" aria-label="Close">×</button>
+    <div id="evidence-body" class="evidence-body"></div>
+    <div class="evidence-foot">
+      <span id="evidence-clue"></span>
+      <button id="evidence-close-2" class="btn ghost">Put it away</button>
+    </div>
+  </div>
+</section>
+
+<!-- Pause -->
+<section id="pause" class="overlay pause-overlay hidden" aria-label="Menu">
+  <div class="pause-card">
+    <span class="book-kicker">The Little Things</span>
+    <h2>A quiet moment</h2>
+    <p class="pause-sub">The rain waits outside.</p>
+    <div class="pause-actions">
+      <button id="pause-resume" class="btn primary">Resume</button>
+      <button id="pause-journal" class="btn">Journal</button>
+      <button id="pause-sound" class="btn">Sound: on</button>
+      <button id="pause-motion" class="btn">Gentle motion: off</button>
+      <button id="pause-title" class="btn">Save &amp; return to title</button>
+    </div>
+    <p class="pause-save" id="pause-save">Progress saves itself as you play.</p>
+  </div>
+</section>
+
+<!-- Endings gallery -->
+<section id="endings" class="overlay endings-overlay hidden" aria-label="Endings">
+  <div class="endings-card">
+    <button id="endings-close" class="close-btn" aria-label="Close">×</button>
+    <span class="book-kicker">The watch that waited</span>
+    <h2>Hours kept</h2>
+    <p class="endings-sub">Four ways to let a small thing go.</p>
+    <div id="endings-grid" class="endings-grid"></div>
+  </div>
+</section>
+
+<!-- Ending screen -->
+<section id="ending-screen" class="overlay ending-screen hidden" aria-label="Ending">
+  <div class="ending-veil"></div>
+  <div class="ending-card">
+    <span id="ending-kicker" class="book-kicker">An ending</span>
+    <h2 id="ending-title">The Hour Returned</h2>
+    <div class="ending-rule" aria-hidden="true"></div>
+    <p id="ending-text" class="ending-text"></p>
+    <div id="ending-shelf" class="ending-shelf"></div>
+    <div class="ending-actions">
+      <button id="ending-continue" class="btn primary">Return to the shop</button>
+      <button id="ending-title-btn" class="btn ghost">Title screen</button>
+    </div>
+  </div>
+</section>
+
+<!-- Title screen -->
+<section id="title-screen" class="title-screen">
+  <div class="title-shade" aria-hidden="true"></div>
+  <div class="title-content">
+    <div class="title-mark" aria-hidden="true">
+      <svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="27" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="40" cy="40" r="22" fill="none" stroke="currentColor" stroke-width=".6" opacity=".6"/><path d="M40 22v18l11 7" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M40 10v5M70 40h-5M40 70v-5M10 40h5" stroke="currentColor" stroke-width="1"/><circle cx="40" cy="40" r="1.6" fill="currentColor"/></svg>
+    </div>
+    <p class="title-eyebrow">A cozy mystery in Ember Hollow</p>
+    <h1 class="game-title">The Little<br><em>Things</em></h1>
+    <div class="title-rule" aria-hidden="true"><span></span><i></i><span></span></div>
+    <p class="title-tagline">Lost objects. Found stories.</p>
+    <div class="title-actions">
+      <button id="btn-new" class="btn primary big">Open the shop</button>
+      <button id="btn-continue" class="btn big hidden">Continue <small id="continue-meta"></small></button>
+      <button id="btn-endings" class="btn ghost">Hours kept <span id="ending-count" class="ending-count"></span></button>
+    </div>
+    <p class="title-foot" id="title-foot">WASD to walk · E to look closer · J for your journal</p>
+  </div>
+  <div class="title-corner left" aria-hidden="true"></div>
+  <div class="title-corner right" aria-hidden="true"></div>
+</section>
+
+<!-- Intro curtain -->
+<section id="curtain" class="curtain hidden">
+  <div class="curtain-inner">
+    <p class="curtain-line" id="curtain-line"></p>
+  </div>
+</section>
+
+<div id="fade" class="fade" aria-hidden="true"></div>
+<div id="location-card" class="location-card hidden" aria-live="polite">
+  <span id="location-name">Lantern Row</span>
+  <span id="location-sub">Ember Hollow</span>
+</div>
+
+<!-- Mobile -->
+<div id="touch-controls" class="touch-controls hidden" aria-hidden="true">
+  <div id="joystick" class="joystick"><div id="joystick-knob"></div></div>
+  <div class="touch-buttons">
+    <button id="touch-journal" class="touch-btn">Journal</button>
+    <button id="touch-use" class="touch-btn round">E</button>
+    <button id="touch-menu" class="touch-btn small">☰</button>
+  </div>
+</div>
+
+<div id="rotate-hint" class="rotate-hint hidden">
+  <div class="rotate-card">
+    <span class="book-kicker">The Little Things</span>
+    <p>Turn your device sideways for the full view of Ember Hollow.</p>
+    <button id="rotate-dismiss" class="btn">Continue anyway</button>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
